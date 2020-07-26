@@ -2,6 +2,7 @@ import enum
 from typing import List, Dict, Optional
 import re
 import json
+import io
 
 CHORD_REGEX = '^(C|D|E|F|G|A|B)(b|#)?(m|M|min|maj|dim|Δ|°|ø|Ø)?((sus|add)?' \
               '(b|#)?(2|4|5|6|7|9|10|11|13)?)*' \
@@ -21,6 +22,26 @@ class SongLine:
         self.text = text
         self.chords = chords
 
+    def to_latex(self):
+        if not self.chords:
+            return self.text + '\n'
+
+        out = self.text
+
+        chords = list(self.chords)
+        chords.sort(key=lambda chord: chord.pos, reverse=True)
+
+        diff = chords[0].pos - len(out)
+        if diff > 0:
+            out += ' ' * diff
+
+        for chord in chords:
+            out = out[:chord.pos] + f'\\[{chord.name}]' + out[chord.pos:]
+
+        if not self.text:
+            return f'\\nolyrics{{{out}}}\n'
+        return out + '\n'
+
 
 class SongPart:
     def __init__(self):
@@ -36,6 +57,28 @@ class SongPart:
             return False
 
         return True
+
+    def to_latex(self):
+        out = io.StringIO()
+        lower_name = self.name.lower()
+
+        if lower_name.lower() == 'chorus':
+            out.write('\\beginchorus\n')
+            end = '\\endchorus\n'
+        elif re.match('verse \d+', lower_name):
+            out.write('\\beginverse\n')
+            end = '\\endverse\n'
+        else:
+            out.write('\\beginverse*\n')
+            out.write(f'\t\\textbf{{{self.name}:}}\n')
+            end = '\\endverse\n'
+
+        for line in self.lines:
+            out.write('\t' + line.to_latex())
+
+        out.write(end)
+
+        return out.getvalue()
 
 
 class Song:
@@ -56,6 +99,28 @@ class Song:
                           sort_keys=True,
                           indent=4,
                           default=default)
+
+    def to_latex(self) -> str:
+        out = io.StringIO()
+
+        # Begin the song
+        out.write(f'\\beginsong{{{self.title}}}')
+
+        # Insert an optional artist
+        artist = self.metadata.get('artist', None)
+        if artist is not None:
+            out.write(f'[by={{{artist}}}]')
+        out.write('\n\n')
+
+        # Insert parts
+        for part in self.parts:
+            out.write(part.to_latex())
+            out.write('\n')
+
+        # End the song
+        out.write(f'\\endsong\n')
+
+        return out.getvalue()
 
 
 class SongParser:
@@ -213,4 +278,4 @@ class SongParser:
 
 parser = SongParser()
 parser.parse_file('test.song')
-print(parser.song.to_json())
+print(parser.song.to_latex())
