@@ -45,6 +45,18 @@ class Song:
         self.metadata: Dict[str, str] = dict()
         self.parts: List[SongPart] = []
 
+    def to_json(self) -> str:
+        # Serialize attributes by to_json method or fallback to __dict__
+        def default(obj):
+            return getattr(obj.__class__,
+                           "to_json",
+                           lambda o: o.__dict__)(obj)
+
+        return json.dumps(self.__dict__,
+                          sort_keys=True,
+                          indent=4,
+                          default=default)
+
 
 class SongParser:
     class State(enum.Enum):
@@ -55,10 +67,10 @@ class SongParser:
     def __init__(self):
         super().__init__()
         # Result data
-        self.state = SongParser.State.START
         self.song: Song = None
 
         # State for parsing
+        self.state = SongParser.State.START
         self.last_chords: List[SongChord] = []
         self.part = SongPart()
 
@@ -173,6 +185,7 @@ class SongParser:
             if not self.parse_metadata(line):
                 self.state = SongParser.State.BODY
                 self.parse_part(line)
+                return
 
         elif self.state == SongParser.State.BODY:
             # If there is a blank line, push any non empty part and reset it
@@ -189,19 +202,14 @@ class SongParser:
             self.parse_part(line)
             return
 
+    def parse_file(self, filename: str):
+        with open(filename, 'r') as file:
+            for line in file:
+                self.parse_line(line[:-1])
 
-def parse_song_file(filename: str) -> Song:
-    parser = SongParser()
-
-    with open(filename, 'r') as file:
-        for line in file:
-            parser.parse_line(line[:-1])
-
-    parser.parse_line('')
-
-    return parser.song
+        self.parse_line('')
 
 
-song = parse_song_file('test.song')
-print(json.dumps(song.__dict__, sort_keys=True, indent=4,
-                 default=lambda o: o.__dict__))
+parser = SongParser()
+parser.parse_file('test.song')
+print(parser.song.to_json())
