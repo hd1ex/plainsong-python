@@ -193,6 +193,7 @@ class SongParser:
                 if not self.part.is_empty():
                     if self.last_chords:
                         self.part.lines.append(SongLine('', self.last_chords))
+                        self.last_chords = []
                     self.song.parts.append(self.part)
                     self.part = SongPart()
 
