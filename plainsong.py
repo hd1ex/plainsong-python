@@ -1,8 +1,20 @@
 import enum
-from typing import List, Dict, Optional
+from typing import List, Dict, Optional, TextIO
 import re
 import json
 import io
+import argparse
+import sys
+
+argument_parser = argparse.ArgumentParser('Parse plain text songs.')
+argument_parser.add_argument('output_format', choices=['to-json', 'to-latex'])
+argument_parser.add_argument('-i', '--input', nargs='?',
+                             type=argparse.FileType('r'), default=sys.stdin,
+                             help='input file (default is stdin)')
+argument_parser.add_argument('-o', '--output', nargs='?',
+                             type=argparse.FileType('w'), default=sys.stdout,
+                             help='output file (default is stdout)')
+args = argument_parser.parse_args()
 
 CHORD_REGEX = '^(C|D|E|F|G|A|B)(b|#)?(m|M|min|maj|dim|Δ|°|ø|Ø)?((sus|add)?' \
               '(b|#)?(2|4|5|6|7|9|10|11|13)?)*' \
@@ -268,14 +280,19 @@ class SongParser:
             self.parse_part(line)
             return
 
+    def parse(self, file: TextIO):
+        for line in file:
+            self.parse_line(line[:-1])
+        self.parse_line('')
+
     def parse_file(self, filename: str):
         with open(filename, 'r') as file:
-            for line in file:
-                self.parse_line(line[:-1])
-
-        self.parse_line('')
+            self.parse(file)
 
 
 parser = SongParser()
-parser.parse_file('test.song')
-print(parser.song.to_latex())
+parser.parse(args.input)
+if args.output_format == 'to-latex':
+    args.output.write(parser.song.to_latex())
+else:
+    args.output.write(parser.song.to_json())
