@@ -174,7 +174,7 @@ class SongParser:
     def parse_part(self, line: str):
         # If the current part is empty, try to interpret the line as part name
         if self.part.is_empty():
-            matcher = re.search('^\s*(.*):\s*$', line)
+            matcher = re.search('^\s*(.*):$', line)
             if matcher:
                 self.part.name = matcher.group(1)
                 return
